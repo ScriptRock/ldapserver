@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io"
 
 	ldap "github.com/lor00x/goldap/message"
 )
@@ -89,14 +88,12 @@ func readTagAndLength(conn *bufio.Reader, bytes *[]byte) (ret ldap.TagAndLength,
 	if b != 0x30 {
 		// Did not get 0x30 as first byte, which is invalid for an LDAP connection.
 		// Read the full packet and return an error instead
-		allBytes, err := io.ReadAll(conn)
-		if err != nil {
-			return ldap.TagAndLength{}, fmt.Errorf("expected 0x30 as first byte, but got %#x instead. Could not read full packet", b)
-		}
+		payload := make([]byte, 10000)
+		n, _ := conn.Read(payload)
+		payload = payload[:n]
+		payload = append([]byte{b}, payload...)
 
-		allBytes = append([]byte{b}, allBytes...)
-
-		return ldap.TagAndLength{}, fmt.Errorf("expected 0x30 as first byte, but got %#x instead. Full packet: %s", b, string(allBytes))
+		return ldap.TagAndLength{}, fmt.Errorf("expected 0x30 as first byte, but got %#x instead. Full packet: %q", b, payload)
 	}
 
 	b, err = readBytes(conn, bytes, 1)
