@@ -86,7 +86,14 @@ func readTagAndLength(conn *bufio.Reader, bytes *[]byte) (ret ldap.TagAndLength,
 	//	}
 	// We are expecting the LDAP sequence tag 0x30 as first byte
 	if b != 0x30 {
-		panic(fmt.Sprintf("Expecting 0x30 as first byte, but got %#x instead", b))
+		// Did not get 0x30 as first byte, which is invalid for an LDAP connection.
+		// Read the full packet and return an error instead
+		payload := make([]byte, 10000)
+		n, _ := conn.Read(payload)
+		payload = payload[:n]
+		payload = append([]byte{b}, payload...)
+
+		return ldap.TagAndLength{}, fmt.Errorf("expected 0x30 as first byte, but got %#x instead. Full packet: %q", b, payload)
 	}
 
 	b, err = readBytes(conn, bytes, 1)
